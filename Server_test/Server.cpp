@@ -49,67 +49,30 @@ void message_test()
 	std::cout << "string s2:\t" << s4 << '\n';
 }
 
-void WaitForConnections(asio::ip::tcp::acceptor& acceptor)
-{
-	acceptor.async_accept([&](std::error_code ec, asio::ip::tcp::socket socket) {
-		if (ec)
-			std::cout << "Some errors: " << ec.message() << '\n';
-
-		std::cout << "Connected to " << socket.remote_endpoint() << "\n";
-		net::common::Connection<int>* con = new net::common::Connection<int>(std::move(socket));
-		connections.push_back(con);
-
-		uint32_t msg = connections.size() - 1;
-		con->Write(msg);
-
-		WaitForConnections(acceptor);
-		});
-}
-
 int main()
 {
 	std::cout << "Server start\n";
 
-	asio::io_service service;
-	asio::io_context context;
+	net::server::Server<int> server(60000);
+	server.Start();
 
-	asio::ip::tcp::acceptor acceptor(context, asio::ip::tcp::endpoint(asio::ip::tcp::v4(), 60000));
-
-	/*/
-	acceptor.async_accept([&](std::error_code ec, asio::ip::tcp::socket socket) {
-		if (ec)
-			std::cout << "Some errors: " << ec.message() << '\n';
-
-		std::cout << "Connected to " << socket.remote_endpoint() << "\n";
-		net::common::Connection<int>* con = new net::common::Connection<int>(std::move(socket));
-		connections.push_back(con);
-		});
-	//*/
-	WaitForConnections(acceptor);
-	
-	std::thread context_thread = std::thread([&]() { context.run(); });
-
-	uint32_t buff;
-
-
-	std::string command = "";
-
-	while (command != "quit")
+	while (true)
 	{
+		std::string command;
 		std::cin >> command;
 
-		if (command == "check")
+		if (command == "q")
+			break;
+
+		if (command == "w")
 		{
-
-			for(auto con : connections)
-				std::cout << (con->getSocket()->is_open() ? "Open\n" : "Close\n");
+			uint32_t msg;
+			std::cin >> msg;
+			server.Send(msg);
 		}
-
-		if (command == "r")
-			for (auto con : connections)
-				con->Read(buff);
 	}
 
-	context.stop();
-	context_thread.join();
+	server.Stop();
+
+	return 0;
 }

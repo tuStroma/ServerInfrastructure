@@ -1,5 +1,6 @@
 #pragma once
 #include <iostream>
+#include <list>
 #include <asio.hpp>
 
 #include "Message.h"
@@ -14,8 +15,10 @@ namespace net
 		private:
 			asio::ip::tcp::socket socket;
 
+			uint32_t buffer;
+
 		public:
-			Connection(asio::ip::tcp::socket socket) 
+			Connection(asio::ip::tcp::socket socket)
 				:socket(std::move(socket))
 			{}
 
@@ -25,10 +28,12 @@ namespace net
 				return &socket;
 			}
 
-			void Read(uint32_t& buffer)
+			void Read()
 			{
 				asio::async_read(socket, asio::buffer(&buffer, sizeof(buffer)), [&](std::error_code ec, std::size_t length) {
 					std::cout << "Recv:\t" << buffer << std::endl;
+					//destination_queue->push_back(buffer);
+					Read();
 					});
 			}
 
