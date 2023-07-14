@@ -145,6 +145,7 @@
     <ClInclude Include="client\Client.h" />
     <ClInclude Include="common\Connection.h" />
     <ClInclude Include="common\Message.h" />
+    <ClInclude Include="common\ThreadSharedQueue.h" />
     <ClInclude Include="server\Server.h" />
     <ClInclude Include="server_infrastructure.h" />
   </ItemGroup>

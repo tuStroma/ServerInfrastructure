@@ -30,5 +30,8 @@
     <ClInclude Include="client\Client.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="common\ThreadSharedQueue.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

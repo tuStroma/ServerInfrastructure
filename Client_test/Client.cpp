@@ -78,6 +78,16 @@ int main()
 			std::cin >> msg;
 			client->Send(msg);
 		}
+
+		if (command == "r")
+		{
+			int msg;
+			bool success = client->Read(&msg);
+			if (!success)
+				std::cout << "No messages\n";
+			else
+				std::cout << msg << '\n';
+		}
 	}
 
 

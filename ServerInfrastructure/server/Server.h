@@ -33,6 +33,7 @@ namespace net
 
 			// Server management
 			common::Connection<Type>* connection = nullptr;
+			common::ThreadSharedQueue<Type> incomming_queue;
 
 			void WaitForConnection()
 			{
@@ -43,7 +44,7 @@ namespace net
 					{
 						std::cout << "Connected to " << socket.remote_endpoint() << "\n";
 
-						connection = new net::common::Connection<Type>(std::move(socket));
+						connection = new net::common::Connection<Type>(std::move(socket) , &incomming_queue);
 
 						connection->Read();
 					}
@@ -73,8 +74,13 @@ namespace net
 
 			void Send(uint32_t msg)
 			{
-				if (connection)
+				if (connection && connection->isConnected())
 					connection->Write(msg);
+			}
+
+			bool Read(Type* destination)
+			{
+				return incomming_queue.pop(destination);
 			}
 		};
 	} // server

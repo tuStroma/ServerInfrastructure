@@ -14,7 +14,9 @@ namespace net
 			asio::io_context context;
 			std::thread thrContext;
 
-			common::Connection<Type>* connection;
+			common::ThreadSharedQueue<Type> incomming_queue;
+
+			common::Connection<Type>* connection = nullptr;
 
 		public:
 			Client() {}
@@ -40,7 +42,7 @@ namespace net
 					return false;
 				}
 
-				connection = new common::Connection<Type>(std::move(socket));
+				connection = new common::Connection<Type>(std::move(socket), &incomming_queue);
 
 				connection->Read();
 
@@ -49,7 +51,14 @@ namespace net
 
 			void Send(uint32_t msg)
 			{
-				connection->Write(msg);
+				if (connection && connection->isConnected())
+					connection->Write(msg);
+
+			}
+
+			bool Read(Type* destination)
+			{
+				return incomming_queue.pop(destination);
 			}
 		};
 	} // client

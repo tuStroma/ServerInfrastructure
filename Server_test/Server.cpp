@@ -1,7 +1,10 @@
 #include <iostream>
 #include <string>
 #include <list>
+#include <semaphore>
 #include <server_infrastructure.h>
+
+
 
 enum class types
 {
@@ -11,6 +14,42 @@ enum class types
 };
 
 std::list<net::common::Connection<int>*> connections;
+
+void server()
+{
+	std::cout << "Server start\n";
+
+	net::server::Server<int> server(60000);
+	server.Start();
+
+	while (true)
+	{
+		std::string command;
+		std::cin >> command;
+
+		if (command == "q")
+			break;
+
+		if (command == "w")
+		{
+			uint32_t msg;
+			std::cin >> msg;
+			server.Send(msg);
+		}
+
+		if (command == "r")
+		{
+			int msg;
+			bool success = server.Read(&msg);
+			if (!success)
+				std::cout << "No messages\n";
+			else
+				std::cout << msg << '\n';
+		}
+	}
+
+	server.Stop();
+}
 
 void message_test()
 {
@@ -49,30 +88,67 @@ void message_test()
 	std::cout << "string s2:\t" << s4 << '\n';
 }
 
-int main()
+void thread_test()
 {
-	std::cout << "Server start\n";
+	int count = 0;
+	std::binary_semaphore s(1);
 
-	net::server::Server<int> server(60000);
-	server.Start();
+	#define t_count 7
+	std::thread threads[t_count];
 
+	auto job = [&]() {
+		for (int i = 0; i < 10000; i++)
+		{
+			s.acquire();
+			count++;
+			s.release();
+		}
+	};
+
+	for (int i = 0; i < t_count; i++)
+		threads[i] = std::thread(job);
+
+	for (int i = 0; i < t_count; i++)
+		threads[i].join();
+
+	std::cout << count << '\n';
+
+}
+
+void ts_queue_test()
+{
+	net::common::ThreadSharedQueue<int> tsq;// = net::common::ThreadSharedQueue<int>();
+
+	std::thread t = std::thread([&]() {
+		for (int i = 1; i < 10001; i++)
+		tsq.push(i);
+		});
+
+	int count = 0;
 	while (true)
 	{
-		std::string command;
-		std::cin >> command;
-
-		if (command == "q")
-			break;
-
-		if (command == "w")
+		int n;
+		if (tsq.pop(&n))
 		{
-			uint32_t msg;
-			std::cin >> msg;
-			server.Send(msg);
+			count += n;
+			if (n == 10000)
+				break;
 		}
 	}
 
-	server.Stop();
+	t.join();
+
+	std::cout << count << '\n';
+}
+
+
+int main()
+{
+	server();
+
+	//thread_test();
+
+	//ts_queue_test();
 
 	return 0;
 }
