@@ -33,7 +33,7 @@ namespace net
 
 			// Server management
 			common::Connection<Type>* connection = nullptr;
-			common::ThreadSharedQueue<Type> incomming_queue;
+			common::ThreadSharedQueue<common::Message<Type>*> incomming_queue;
 
 			void WaitForConnection()
 			{
@@ -72,13 +72,13 @@ namespace net
 				context_thread.join();
 			}
 
-			void Send(uint32_t msg)
+			void Send(common::Message<Type>* msg)
 			{
 				if (connection && connection->isConnected())
 					connection->Write(msg);
 			}
 
-			bool Read(Type* destination)
+			bool Read(common::Message<Type>** destination)
 			{
 				return incomming_queue.pop(destination);
 			}

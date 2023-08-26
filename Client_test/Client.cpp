@@ -74,19 +74,31 @@ int main()
 
 		if (command == "w")
 		{
-			uint32_t msg;
-			std::cin >> msg;
-			client->Send(msg);
+			net::common::Message<int> msg(69, 8);
+
+			std::string s;
+			std::getline(std::cin, s);
+			msg.putString(s.c_str());
+
+			client->Send(&msg);
 		}
 
 		if (command == "r")
 		{
-			int msg;
+			net::common::Message<int>* msg;
 			bool success = client->Read(&msg);
 			if (!success)
 				std::cout << "No messages\n";
 			else
-				std::cout << msg << '\n';
+			{
+				net::common::Header<int> header = msg->getHeader();
+				std::cout << "Message: " << header.getType() << " (" << header.getSize() << "):" << '\n';
+
+				char a[30];
+				msg->getString(a);
+				std::cout << a << "\n";
+
+			}
 		}
 	}
 

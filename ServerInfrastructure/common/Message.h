@@ -7,25 +7,26 @@ namespace net
 	namespace common
 	{
 		template<typename Type>
+		class Header
+		{
+		private:
+			Type type;
+			size_t size = 0;
+
+		public:
+			Header() {}
+			Header(Type type, size_t size)
+				:type(type), size(size)
+			{}
+
+			size_t getSize() { return size; }
+			Type getType() { return type; }
+		};
+
+		template<typename Type>
 		class Message
 		{
 		private:
-			template<typename Type>
-			class Header
-			{
-			private:
-				Type type;
-				size_t size = 0;
-
-			public:
-				Header() {}
-				Header(Type type, size_t size)
-					:type(type), size(size)
-				{}
-
-				uint32_t getSize() { return size; }
-			};
-
 			Header<Type> header;
 			void* body;
 
@@ -33,10 +34,24 @@ namespace net
 			uint32_t read_offset = 0;
 
 		public:
+			Message() {}
 			Message(Type type, size_t size)
 			{
 				header = Header<Type>(type, size);
 				body = malloc(size);
+			}
+
+			Message(Header<Type> header)
+			{
+				this->header = header;
+				body = malloc(header.getSize());
+			}
+
+			Message(Message<Type>& msg)
+			{
+				header = msg->getHeader();
+				body = malloc(header.getSize());
+				std::memcpy(body, msg->getBody(), header.getSize());
 			}
 
 			bool put(void* source, size_t size)
@@ -73,6 +88,12 @@ namespace net
 				uint32_t size = std::strlen(str) + 1;
 				return get(destination, size);
 			}
+
+			Header<Type> getHeader() { return header; }
+
+			void* getBody() { return body; }
+
+			size_t getSize() { return header.getSize(); }
 		};
 	} // common
 } // net
