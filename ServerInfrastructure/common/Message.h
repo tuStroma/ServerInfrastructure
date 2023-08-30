@@ -49,9 +49,9 @@ namespace net
 
 			Message(Message<Type>& msg)
 			{
-				header = msg->getHeader();
+				header = msg.getHeader();
 				body = malloc(header.getSize());
-				std::memcpy(body, msg->getBody(), header.getSize());
+				std::memcpy(body, msg.getBody(), header.getSize());
 			}
 
 			bool put(void* source, size_t size)

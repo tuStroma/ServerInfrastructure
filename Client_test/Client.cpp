@@ -62,7 +62,7 @@ void simpleClientTest()
 int main()
 {
 	net::client::Client<int>* client =  new net::client::Client<int>();
-	client->Connect("127.0.0.1", 60000);
+	client->Connect("192.168.1.77", 60000);
 
 	while (true)
 	{
@@ -74,19 +74,21 @@ int main()
 
 		if (command == "w")
 		{
-			net::common::Message<int> msg(69, 8);
-
 			std::string s;
+			std::getchar();
 			std::getline(std::cin, s);
+
+			net::common::Message<int> msg(69, s.size() + 1);
+
 			msg.putString(s.c_str());
 
-			client->Send(&msg);
+			client->Send(msg);
 		}
 
 		if (command == "r")
 		{
 			net::common::Message<int>* msg;
-			bool success = client->Read(&msg);
+			bool success = client->Read(msg);
 			if (!success)
 				std::cout << "No messages\n";
 			else

@@ -21,9 +21,31 @@ namespace net
 			Header<communication_context> header_buffer;
 			Message<communication_context>* message_buffer;
 
-			// TMP
-			uint32_t buffer = 0;
+			// Sending messages
+			std::thread sender_thread;
+			std::condition_variable sender_cv, wait_till_sent;
+			net::common::ThreadSharedQueue<Message<communication_context>*> message_sending_queue;
 			Message<communication_context>* msg_to_send = nullptr;
+
+			void SendingJob()
+			{
+				std::mutex sender_m, till_sent_m;
+				std::unique_lock<std::mutex> lk_sender(sender_m), lk_till_sent(till_sent_m);
+				std::cout << "Hi, it's sender\n";
+
+				while (true)
+				{
+
+					while (message_sending_queue.pop(&msg_to_send))
+					{
+						WriteHeader();
+						wait_till_sent.wait(lk_till_sent);
+					}
+					
+					sender_cv.wait(lk_sender);
+				}
+				
+			}
 
 			void ReadHeader()
 			{
@@ -57,6 +79,8 @@ namespace net
 
 			void WriteHeader()
 			{
+				
+
 				Header<communication_context> header = msg_to_send->getHeader();
 				asio::async_write(socket, asio::buffer(&header, sizeof(header)), [&](std::error_code ec, std::size_t length) {
 					if (ec)
@@ -76,13 +100,22 @@ namespace net
 						socket.close();
 						return;
 					}
+					wait_till_sent.notify_one();
 					});
 			}
 
 		public:
 			Connection(asio::ip::tcp::socket socket, ThreadSharedQueue<Message<communication_context>*>* destination_queue)
 				:socket(std::move(socket)), message_destination(destination_queue)
-			{}
+			{
+				sender_thread = std::thread(&Connection::SendingJob, this);
+				//WriteHeader();
+			}
+
+			~Connection()
+			{
+				sender_thread.join();
+			}
 
 			bool isConnected()
 			{
@@ -94,10 +127,13 @@ namespace net
 				ReadHeader();
 			}
 
-			void Write(Message<communication_context>* msg)
+			void Write(Message<communication_context>& msg)
 			{
-				msg_to_send = msg;
-				WriteHeader();
+				message_sending_queue.push(new Message<communication_context>(msg));
+				sender_cv.notify_one();
+
+				//msg_to_send = &msg;
+				//WriteHeader();
 			}
 		};
 

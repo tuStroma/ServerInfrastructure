@@ -2,6 +2,8 @@
 #include <string>
 #include <list>
 #include <semaphore>
+#include <condition_variable>
+#include <thread>
 #include <server_infrastructure.h>
 
 
@@ -32,19 +34,21 @@ void server()
 
 		if (command == "w")
 		{
-			net::common::Message<int> msg(69, 8);
-
 			std::string s;
+			std::getchar();
 			std::getline(std::cin, s);
+
+			net::common::Message<int> msg(69, s.size()+1);
+
 			msg.putString(s.c_str());
 
-			server.Send(&msg);
+			server.Send(msg);
 		}
 
 		if (command == "r")
 		{
 			net::common::Message<int>* msg;
-			bool success = server.Read(&msg);
+			bool success = server.Read(msg);
 			if (!success)
 				std::cout << "No messages\n";
 			else
@@ -154,9 +158,32 @@ void ts_queue_test()
 }
 
 
+// Wait notify test
+std::condition_variable cv;
+
+void wait_notify_test()
+{
+	std::thread t([]() 
+		{
+			std::cout << "Started thread\n";
+			std::mutex cv_m;
+			std::unique_lock<std::mutex> lk(cv_m);
+			std::cout << "Waiting";
+			cv.wait(lk);
+			std::cout << "Notified\n";
+		});
+
+	std::cin.get();
+	cv.notify_one();
+	t.join();
+}
+
+
 int main()
 {
 	server();
+
+	//wait_notify_test();
 
 	//thread_test();
 

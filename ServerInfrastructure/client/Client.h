@@ -49,16 +49,16 @@ namespace net
 				return true;
 			}
 
-			void Send(common::Message<Type>* msg)
+			void Send(common::Message<Type>& msg)
 			{
 				if (connection && connection->isConnected())
 					connection->Write(msg);
 
 			}
 
-			bool Read(common::Message<Type>** destination)
+			bool Read(common::Message<Type>*& destination)
 			{
-				return incomming_queue.pop(destination);
+				return incomming_queue.pop(&destination);
 			}
 		};
 	} // client
