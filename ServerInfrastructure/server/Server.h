@@ -25,6 +25,8 @@ namespace net
 		template<typename Type>
 		class Server {
 		private:
+			bool is_running = false;
+
 			// Communication
 			asio::io_service service;
 			asio::io_context context;
@@ -55,21 +57,30 @@ namespace net
 			Server(uint32_t port) 
 				:acceptor(context, asio::ip::tcp::endpoint(asio::ip::tcp::v4(), port))
 			{}
-			~Server() {}
+			~Server() {
+				if (is_running)
+					Stop();
+			}
 
 			void Start()
 			{
+				is_running = true;
 
 				WaitForConnection();
-
 				context_thread = std::thread([&]() { context.run(); });
 			}
 
 			void Stop()
 			{
-				// TODO clean all connections
 				context.stop();
 				context_thread.join();
+				if (connection) delete connection;
+
+				common::Message<Type>* msg;
+				while (incomming_queue.pop(&msg))
+					delete msg;
+
+				is_running = false;
 			}
 
 			void Send(common::Message<Type>& msg)

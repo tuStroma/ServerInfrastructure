@@ -16,35 +16,45 @@ namespace net
 		private:
 			asio::ip::tcp::socket socket;
 
+			// Receiving messages
 			net::common::ThreadSharedQueue<Message<communication_context>*>* message_destination;
 
 			Header<communication_context> header_buffer;
 			Message<communication_context>* message_buffer;
 
 			// Sending messages
-			std::thread sender_thread;
-			std::condition_variable sender_cv, wait_till_sent;
+			std::thread sender_thread; bool finish_sending = false;
+			std::condition_variable wait_for_messages, wait_till_sent;
 			net::common::ThreadSharedQueue<Message<communication_context>*> message_sending_queue;
 			Message<communication_context>* msg_to_send = nullptr;
 
 			void SendingJob()
 			{
-				std::mutex sender_m, till_sent_m;
-				std::unique_lock<std::mutex> lk_sender(sender_m), lk_till_sent(till_sent_m);
-				std::cout << "Hi, it's sender\n";
+				std::mutex next_messages_m, till_sent_m;
+				std::unique_lock<std::mutex> lk_for_messages(next_messages_m), lk_till_sent(till_sent_m);
 
 				while (true)
 				{
-
+					// Send all messages
 					while (message_sending_queue.pop(&msg_to_send))
 					{
 						WriteHeader();
 						wait_till_sent.wait(lk_till_sent);
+						if (finish_sending) return;
 					}
 					
-					sender_cv.wait(lk_sender);
+					// And wait for next messages
+					wait_for_messages.wait(lk_for_messages);
+					if (finish_sending) return;
 				}
-				
+			}
+
+			void closeSender()
+			{
+				finish_sending = true;
+				wait_for_messages.notify_one();
+				wait_till_sent.notify_one();
+				sender_thread.join();
 			}
 
 			void ReadHeader()
@@ -58,8 +68,13 @@ namespace net
 
 					message_buffer = new Message<communication_context>(header_buffer);
 
-				
-					ReadBody();
+					if(header_buffer.getSize() == 0)
+					{
+						message_destination->push(message_buffer);
+						ReadHeader();
+					}
+					else
+						ReadBody();
 					});
 			}
 
@@ -79,8 +94,6 @@ namespace net
 
 			void WriteHeader()
 			{
-				
-
 				Header<communication_context> header = msg_to_send->getHeader();
 				asio::async_write(socket, asio::buffer(&header, sizeof(header)), [&](std::error_code ec, std::size_t length) {
 					if (ec)
@@ -88,7 +101,14 @@ namespace net
 						socket.close();
 						return;
 					}
-				WriteBody();
+
+					if (header.getSize() == 0)
+					{
+						delete msg_to_send;
+						wait_till_sent.notify_one();
+					}
+					else
+						WriteBody();
 					});
 			}
 
@@ -100,6 +120,8 @@ namespace net
 						socket.close();
 						return;
 					}
+
+					delete msg_to_send;
 					wait_till_sent.notify_one();
 					});
 			}
@@ -109,12 +131,20 @@ namespace net
 				:socket(std::move(socket)), message_destination(destination_queue)
 			{
 				sender_thread = std::thread(&Connection::SendingJob, this);
-				//WriteHeader();
 			}
 
 			~Connection()
 			{
-				sender_thread.join();
+				// Close sending job
+				closeSender();
+
+				// Close socket
+				socket.close();
+
+				// Delete all messages
+				Message<communication_context>* msg;
+				while (message_sending_queue.pop(&msg))
+					delete msg;
 			}
 
 			bool isConnected()
@@ -130,10 +160,7 @@ namespace net
 			void Write(Message<communication_context>& msg)
 			{
 				message_sending_queue.push(new Message<communication_context>(msg));
-				sender_cv.notify_one();
-
-				//msg_to_send = &msg;
-				//WriteHeader();
+				wait_for_messages.notify_one();
 			}
 		};
 

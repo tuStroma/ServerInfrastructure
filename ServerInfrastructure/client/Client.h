@@ -24,6 +24,11 @@ namespace net
 			{
 				context.stop();
 				thrContext.join();
+				if (connection) delete connection;
+
+				common::Message<Type>* msg;
+				while (incomming_queue.pop(&msg))
+					delete msg;
 			}
 
 			bool Connect(std::string ip, uint32_t port)

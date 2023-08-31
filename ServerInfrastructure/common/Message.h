@@ -39,19 +39,40 @@ namespace net
 			{
 				header = Header<Type>(type, size);
 				body = malloc(size);
+				if (!body)
+				{
+					std::cerr << "Failed to allocate memory\n";
+					exit(-1);
+				}
 			}
 
 			Message(Header<Type> header)
 			{
 				this->header = header;
 				body = malloc(header.getSize());
+				if (!body)
+				{
+					std::cerr << "Failed to allocate memory\n";
+					exit(-1);
+				}
 			}
 
 			Message(Message<Type>& msg)
 			{
 				header = msg.getHeader();
 				body = malloc(header.getSize());
+				if (!body)
+				{
+					std::cerr << "Failed to allocate memory\n";
+					exit(-1);
+				}
+
 				std::memcpy(body, msg.getBody(), header.getSize());
+			}
+
+			~Message()
+			{
+				free(body);
 			}
 
 			bool put(void* source, size_t size)
