@@ -11,6 +11,13 @@ namespace net
 	namespace common
 	{
 		template<typename communication_context>
+		struct ownedMessage
+		{
+			Message<communication_context>* message;
+			uint64_t owner;
+		};
+
+		template<typename communication_context>
 		class Connection
 		{
 		private:

@@ -36,6 +36,11 @@ namespace net
 			// Server management
 			common::Connection<Type>* connection = nullptr;
 			common::ThreadSharedQueue<common::Message<Type>*> incomming_queue;
+			common::ThreadSharedQueue<common::ownedMessage<Type>> incomming_queue_2;	// Owned messages
+
+			// Multiple clients
+			uint64_t next_id = 0;
+			std::unordered_map<uint64_t, common::Connection<Type>*> connections;
 
 			void WaitForConnection()
 			{
@@ -46,9 +51,12 @@ namespace net
 					{
 						std::cout << "Connected to " << socket.remote_endpoint() << "\n";
 
-						connection = new net::common::Connection<Type>(std::move(socket) , &incomming_queue);
+						common::Connection<Type>* connection = new net::common::Connection<Type>(std::move(socket) , &incomming_queue);
+						connections[next_id++] = connection;
 
 						connection->Read();
+
+						WaitForConnection();
 					}
 				});
 			}
@@ -83,10 +91,12 @@ namespace net
 				is_running = false;
 			}
 
-			void Send(common::Message<Type>& msg)
+			void Send(common::Message<Type>& msg, uint64_t client_id)
 			{
+				common::Connection<Type>* connection = connections[client_id];
 				if (connection && connection->isConnected())
 					connection->Write(msg);
+					
 			}
 
 			bool Read(common::Message<Type>*& destination)

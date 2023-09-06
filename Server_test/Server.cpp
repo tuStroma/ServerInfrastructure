@@ -34,6 +34,9 @@ void server()
 
 		if (command == "w")
 		{
+			uint64_t client;
+			std::cin >> client;
+
 			std::string s;
 			std::getchar();
 			std::getline(std::cin, s);
@@ -42,7 +45,7 @@ void server()
 
 			msg.putString(s.c_str());
 
-			server.Send(msg);
+			server.Send(msg, client);
 		}
 
 		if (command == "r")
