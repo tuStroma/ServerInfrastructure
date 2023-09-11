@@ -24,10 +24,18 @@ namespace net
 			asio::ip::tcp::socket socket;
 
 			// Receiving messages
-			net::common::ThreadSharedQueue<Message<communication_context>*>* message_destination;
 
 			Header<communication_context> header_buffer;
 			Message<communication_context>* message_buffer;
+
+			bool is_server_connection = false;
+
+			// Client Connection (raw messages)
+			net::common::ThreadSharedQueue<Message<communication_context>*>* client_message_destination = nullptr;
+
+			// Server Connection (owned messages)
+			net::common::ThreadSharedQueue<ownedMessage<communication_context>>* server_message_destination = nullptr;
+			uint64_t client_id;
 
 			// Sending messages
 			std::thread sender_thread; bool finish_sending = false;
@@ -64,6 +72,14 @@ namespace net
 				sender_thread.join();
 			}
 
+			void saveMessage()
+			{
+				if (is_server_connection)
+					server_message_destination->push(ownedMessage<communication_context> { message_buffer, client_id });
+				else
+					client_message_destination->push(message_buffer);
+			}
+
 			void ReadHeader()
 			{
 				asio::async_read(socket, asio::buffer(&header_buffer, sizeof(header_buffer)), [&](std::error_code ec, std::size_t length) {
@@ -77,7 +93,7 @@ namespace net
 
 					if(header_buffer.getSize() == 0)
 					{
-						message_destination->push(message_buffer);
+						saveMessage();
 						ReadHeader();
 					}
 					else
@@ -94,7 +110,7 @@ namespace net
 						return;
 					}
 
-					message_destination->push(message_buffer);
+					saveMessage();
 					ReadHeader();
 					});
 			}
@@ -134,8 +150,16 @@ namespace net
 			}
 
 		public:
+			// Client Connection
 			Connection(asio::ip::tcp::socket socket, ThreadSharedQueue<Message<communication_context>*>* destination_queue)
-				:socket(std::move(socket)), message_destination(destination_queue)
+				:socket(std::move(socket)), client_message_destination(destination_queue)
+			{
+				sender_thread = std::thread(&Connection::SendingJob, this);
+			}
+
+			// Server Connection
+			Connection(asio::ip::tcp::socket socket, ThreadSharedQueue<ownedMessage<communication_context>>* destination_queue, uint64_t client_id)
+				:socket(std::move(socket)), server_message_destination(destination_queue), client_id(client_id), is_server_connection(true)
 			{
 				sender_thread = std::thread(&Connection::SendingJob, this);
 			}

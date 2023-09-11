@@ -34,15 +34,13 @@ namespace net
 			asio::ip::tcp::acceptor acceptor;
 
 			// Server management
-			common::Connection<Type>* connection = nullptr;
-			common::ThreadSharedQueue<common::Message<Type>*> incomming_queue;
-			common::ThreadSharedQueue<common::ownedMessage<Type>> incomming_queue_2;	// Owned messages
+			common::ThreadSharedQueue<common::ownedMessage<Type>> incomming_queue;
 
 			// Multiple clients
 			uint64_t next_id = 0;
 			std::unordered_map<uint64_t, common::Connection<Type>*> connections;
 
-			void WaitForConnection()
+			void WaitForConnections()
 			{
 				acceptor.async_accept([&](std::error_code ec, asio::ip::tcp::socket socket) {
 					if (ec)
@@ -51,12 +49,12 @@ namespace net
 					{
 						std::cout << "Connected to " << socket.remote_endpoint() << "\n";
 
-						common::Connection<Type>* connection = new net::common::Connection<Type>(std::move(socket) , &incomming_queue);
+						common::Connection<Type>* connection = new net::common::Connection<Type>(std::move(socket) , &incomming_queue, next_id);
 						connections[next_id++] = connection;
 
 						connection->Read();
 
-						WaitForConnection();
+						WaitForConnections();
 					}
 				});
 			}
@@ -74,7 +72,7 @@ namespace net
 			{
 				is_running = true;
 
-				WaitForConnection();
+				WaitForConnections();
 				context_thread = std::thread([&]() { context.run(); });
 			}
 
@@ -82,11 +80,12 @@ namespace net
 			{
 				context.stop();
 				context_thread.join();
-				if (connection) delete connection;
+				for (std::pair<uint64_t, common::Connection<Type>*> connection : connections)
+					delete connection.second;
 
-				common::Message<Type>* msg;
+				common::ownedMessage<Type> msg;
 				while (incomming_queue.pop(&msg))
-					delete msg;
+					delete msg.message;
 
 				is_running = false;
 			}
@@ -99,7 +98,7 @@ namespace net
 					
 			}
 
-			bool Read(common::Message<Type>*& destination)
+			bool Read(common::ownedMessage<Type>& destination)
 			{
 				return incomming_queue.pop(&destination);
 			}

@@ -50,18 +50,19 @@ void server()
 
 		if (command == "r")
 		{
-			net::common::Message<int>* msg;
+			net::common::ownedMessage<int> msg;
 			bool success = server.Read(msg);
 			if (!success)
-				std::cout << "No messages\n";
+				std::cout << "No messages\n\n";
 			else
 			{
-				net::common::Header<int> header = msg->getHeader();
+				std::cout << "Message from " << msg.owner << "\n";
+				net::common::Header<int> header = msg.message->getHeader();
 				std::cout << "Message: " << header.getType() << " (" << header.getSize() << "):" << '\n';
 
 				char a [30];
-				msg->getString(a);
-				std::cout << a << "\n";
+				msg.message->getString(a);
+				std::cout << a << "\n\n";
 
 			}
 		}
