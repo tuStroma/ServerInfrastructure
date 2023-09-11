@@ -10,19 +10,6 @@ namespace net
 	namespace server
 	{
 		template<typename Type>
-		class ClientConnection
-		{
-		private:
-		public:
-			common::Connection<Type>* connection;
-			uint64_t client_id;
-
-			ClientConnection(common::Connection<Type>* connection, uint64_t id)
-				:connection(connection), client_id(id)
-			{}
-		};
-
-		template<typename Type>
 		class Server {
 		private:
 			bool is_running = false;
@@ -39,6 +26,9 @@ namespace net
 			// Multiple clients
 			uint64_t next_id = 0;
 			std::unordered_map<uint64_t, common::Connection<Type>*> connections;
+
+			// Cleanup
+			bool closing_connections = false;
 
 			void WaitForConnections()
 			{
@@ -78,11 +68,17 @@ namespace net
 
 			void Stop()
 			{
+				// Closing ASIO context
 				context.stop();
 				context_thread.join();
+
+				// Closing connections
+				closing_connections = true;
 				for (std::pair<uint64_t, common::Connection<Type>*> connection : connections)
 					delete connection.second;
+				closing_connections = false;
 
+				// Cleaning incomming queue
 				common::ownedMessage<Type> msg;
 				while (incomming_queue.pop(&msg))
 					delete msg.message;
@@ -93,7 +89,7 @@ namespace net
 			void Send(common::Message<Type>& msg, uint64_t client_id)
 			{
 				common::Connection<Type>* connection = connections[client_id];
-				if (connection && connection->isConnected())
+				if (connection && connection->isConnected() && !closing_connections)
 					connection->Write(msg);
 					
 			}
