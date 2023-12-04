@@ -10,7 +10,7 @@ namespace net
 		class Header
 		{
 		private:
-			Type type;
+			Type type = Type();
 			size_t size = 0;
 
 		public:
@@ -47,8 +47,8 @@ namespace net
 			}
 
 			Message(Header<Type> header)
+				:header(header)
 			{
-				this->header = header;
 				body = malloc(header.getSize());
 				if (!body)
 				{

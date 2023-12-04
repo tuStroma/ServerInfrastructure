@@ -5,10 +5,3 @@
 #include "common/ThreadSharedQueue.h"
 #include "server/Server.h"
 #include "client/Client.h"
-
-namespace net {
-	int test(int a)
-	{
-		return a * a;
-	}
-}

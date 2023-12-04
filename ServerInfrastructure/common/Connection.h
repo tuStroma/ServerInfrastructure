@@ -38,7 +38,7 @@ namespace net
 			uint64_t client_id;
 
 			// Sending messages
-			std::thread sender_thread; bool finish_sending = false;
+			std::thread sender_thread; bool finish_sending_job = false;
 			std::condition_variable wait_for_messages, wait_till_sent;
 			net::common::ThreadSharedQueue<Message<communication_context>*> message_sending_queue;
 			Message<communication_context>* msg_to_send = nullptr;
@@ -55,18 +55,18 @@ namespace net
 					{
 						WriteHeader();
 						wait_till_sent.wait(lk_till_sent);
-						if (finish_sending) return;
+						if (finish_sending_job) return;
 					}
 					
 					// And wait for next messages
 					wait_for_messages.wait(lk_for_messages);
-					if (finish_sending) return;
+					if (finish_sending_job) return;
 				}
 			}
 
 			void closeSender()
 			{
-				finish_sending = true;
+				finish_sending_job = true;
 				wait_for_messages.notify_one();
 				wait_till_sent.notify_one();
 				sender_thread.join();

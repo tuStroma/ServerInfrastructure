@@ -76,6 +76,7 @@ namespace net
 				closing_connections = true;
 				for (std::pair<uint64_t, common::Connection<Type>*> connection : connections)
 					delete connection.second;
+				connections.clear();
 				closing_connections = false;
 
 				// Cleaning incomming queue
@@ -97,6 +98,12 @@ namespace net
 			bool Read(common::ownedMessage<Type>& destination)
 			{
 				return incomming_queue.pop(&destination);
+			}
+
+			void DisconnectClient(uint64_t client_id)
+			{
+				delete connections[client_id];
+				connections.erase(client_id);
 			}
 		};
 	} // server

@@ -18,17 +18,14 @@ namespace net
 
 			common::Connection<Type>* connection = nullptr;
 
+			// Cleanup
+			bool closing_connection = false;
+
 		public:
 			Client() {}
 			~Client() 
 			{
-				context.stop();
-				thrContext.join();
-				if (connection) delete connection;
-
-				common::Message<Type>* msg;
-				while (incomming_queue.pop(&msg))
-					delete msg;
+				Disconnect();
 			}
 
 			bool Connect(std::string ip, uint32_t port)
@@ -54,11 +51,25 @@ namespace net
 				return true;
 			}
 
+			void Disconnect()
+			{
+				context.stop();
+				thrContext.join();
+
+				closing_connection = true;
+				if (connection) delete connection;
+				connection = nullptr;
+				closing_connection = false;
+
+				common::Message<Type>* msg;
+				while (incomming_queue.pop(&msg))
+					delete msg;
+			}
+
 			void Send(common::Message<Type>& msg)
 			{
-				if (connection && connection->isConnected())
+				if (connection && connection->isConnected() && !closing_connection)
 					connection->Write(msg);
-
 			}
 
 			bool Read(common::Message<Type>*& destination)
