@@ -10,7 +10,7 @@ namespace net
 	namespace server
 	{
 		template<typename Type>
-		class Server {
+		class IServer {
 		private:
 			bool is_running = false;
 
@@ -27,6 +27,10 @@ namespace net
 			uint64_t next_id = 0;
 			std::unordered_map<uint64_t, common::Connection<Type>*> connections;
 
+			// Message processing
+			std::thread worker; bool closing_worker = false;
+			std::condition_variable wait_for_messages;
+
 			// Cleanup
 			bool closing_connections = false;
 
@@ -39,21 +43,47 @@ namespace net
 					{
 						std::cout << "Connected to " << socket.remote_endpoint() << "\n";
 
-						common::Connection<Type>* connection = new net::common::Connection<Type>(std::move(socket) , &incomming_queue, next_id);
-						connections[next_id++] = connection;
+						// Verify new client
+						asio::ip::address address; asio::ip::port_type port{};
+						socket.remote_endpoint().address(address);
+						socket.remote_endpoint().port(port);
 
-						connection->Read();
+						if (OnClientConnect(address.to_string(), port)) 
+						{
+							common::Connection<Type>* connection = new net::common::Connection<Type>(std::move(socket), &incomming_queue, next_id, &wait_for_messages);
+							connections[next_id++] = connection;
+							connection->Read();
+						}
 
 						WaitForConnections();
 					}
 				});
 			}
 
+			void WorkerJob()
+			{
+				std::mutex next_messages_m;
+				std::unique_lock<std::mutex> lk_for_messages(next_messages_m);
+
+				while (true)
+				{
+					common::ownedMessage<Type> message;
+					while (incomming_queue.pop(&message))
+						OnMessage(message.message, message.owner);
+
+					// Wait for next messages
+					wait_for_messages.wait(lk_for_messages);
+
+					// Close worker
+					if (closing_worker) return;
+				}
+			}
+
 		public:
-			Server(uint32_t port) 
+			IServer(uint32_t port) 
 				:acceptor(context, asio::ip::tcp::endpoint(asio::ip::tcp::v4(), port))
 			{}
-			~Server() {
+			~IServer() {
 				if (is_running)
 					Stop();
 			}
@@ -64,10 +94,18 @@ namespace net
 
 				WaitForConnections();
 				context_thread = std::thread([&]() { context.run(); });
+
+				closing_worker = false;
+				worker = std::thread(&IServer::WorkerJob, this);
 			}
 
 			void Stop()
 			{
+				// Closing worker thread
+				closing_worker = true;
+				wait_for_messages.notify_all();
+				worker.join();
+
 				// Closing ASIO context
 				context.stop();
 				context_thread.join();
@@ -92,7 +130,8 @@ namespace net
 				common::Connection<Type>* connection = connections[client_id];
 				if (connection && connection->isConnected() && !closing_connections)
 					connection->Write(msg);
-					
+				else
+					DisconnectClient(client_id);
 			}
 
 			bool Read(common::ownedMessage<Type>& destination)
@@ -104,7 +143,16 @@ namespace net
 			{
 				delete connections[client_id];
 				connections.erase(client_id);
+
+				OnClientDisconnect(client_id);
 			}
+
+
+			// Server interface
+			protected:
+			virtual void OnMessage(net::common::Message<Type>* msg, uint64_t client_id) {}
+			virtual bool OnClientConnect(std::string address, int port) { return true; }
+			virtual void OnClientDisconnect(uint64_t client_id) {}
 		};
 	} // server
 } // net

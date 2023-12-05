@@ -17,11 +17,29 @@ enum class types
 
 std::list<net::common::Connection<int>*> connections;
 
+template<typename Type>
+class server_test : public net::server::IServer<Type>
+{
+public:
+	server_test(int port) : net::server::IServer<Type>(port) {}
+protected:
+	virtual void OnMessage(net::common::Message<Type>* msg, uint64_t client_id)
+	{
+		std::cout << "Message from " << client_id << "\n";
+		net::common::Header<int> header = msg->getHeader();
+		std::cout << "Message: " << header.getType() << " (" << header.getSize() << "):" << '\n';
+
+		char a[30];
+		msg->getString(a);
+		std::cout << a << "\n\n";
+	}
+};
+
 void server()
 {
 	std::cout << "Server start\n";
 
-	net::server::Server<int> server(60000);
+	server_test<int> server(60000);
 	server.Start();
 
 	while (true)

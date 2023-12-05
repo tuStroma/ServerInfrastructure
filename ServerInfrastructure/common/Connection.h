@@ -43,6 +43,10 @@ namespace net
 			net::common::ThreadSharedQueue<Message<communication_context>*> message_sending_queue;
 			Message<communication_context>* msg_to_send = nullptr;
 
+			// Notification
+			std::condition_variable* on_message;
+
+
 			void SendingJob()
 			{
 				std::mutex next_messages_m, till_sent_m;
@@ -78,6 +82,9 @@ namespace net
 					server_message_destination->push(ownedMessage<communication_context> { message_buffer, client_id });
 				else
 					client_message_destination->push(message_buffer);
+
+				// Notify connection owner about new message
+				on_message->notify_all();
 			}
 
 			void ReadHeader()
@@ -158,8 +165,8 @@ namespace net
 			}
 
 			// Server Connection
-			Connection(asio::ip::tcp::socket socket, ThreadSharedQueue<ownedMessage<communication_context>>* destination_queue, uint64_t client_id)
-				:socket(std::move(socket)), server_message_destination(destination_queue), client_id(client_id), is_server_connection(true)
+			Connection(asio::ip::tcp::socket socket, ThreadSharedQueue<ownedMessage<communication_context>>* destination_queue, uint64_t client_id, std::condition_variable* on_message_notification)
+				:socket(std::move(socket)), server_message_destination(destination_queue), client_id(client_id), is_server_connection(true), on_message(on_message_notification)
 			{
 				sender_thread = std::thread(&Connection::SendingJob, this);
 			}
