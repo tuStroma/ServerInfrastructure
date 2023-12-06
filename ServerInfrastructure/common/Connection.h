@@ -158,8 +158,8 @@ namespace net
 
 		public:
 			// Client Connection
-			Connection(asio::ip::tcp::socket socket, ThreadSharedQueue<Message<communication_context>*>* destination_queue)
-				:socket(std::move(socket)), client_message_destination(destination_queue)
+			Connection(asio::ip::tcp::socket socket, ThreadSharedQueue<Message<communication_context>*>* destination_queue, std::condition_variable* on_message_notification)
+				:socket(std::move(socket)), client_message_destination(destination_queue), on_message(on_message_notification)
 			{
 				sender_thread = std::thread(&Connection::SendingJob, this);
 			}

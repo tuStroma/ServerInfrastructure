@@ -8,7 +8,7 @@ namespace net
 	namespace client
 	{
 		template<typename Type>
-		class Client
+		class IClient
 		{
 		private:
 			asio::io_context context;
@@ -21,9 +21,32 @@ namespace net
 			// Cleanup
 			bool closing_connection = false;
 
+			// Message processing
+			std::thread worker; bool closing_worker = false;
+			std::condition_variable wait_for_messages;
+
+			void WorkerJob()
+			{
+				std::mutex next_messages_m;
+				std::unique_lock<std::mutex> lk_for_messages(next_messages_m);
+
+				while (true)
+				{
+					common::Message<Type>* message;
+					while (incomming_queue.pop(&message))
+						OnMessage(message);
+
+					// Wait for next messages
+					wait_for_messages.wait(lk_for_messages);
+
+					// Close worker
+					if (closing_worker) return;
+				}
+			}
+
 		public:
-			Client() {}
-			~Client() 
+			IClient() {}
+			~IClient() 
 			{
 				Disconnect();
 			}
@@ -44,8 +67,13 @@ namespace net
 					return false;
 				}
 
-				connection = new common::Connection<Type>(std::move(socket), &incomming_queue);
+				connection = new common::Connection<Type>(std::move(socket), &incomming_queue, &wait_for_messages);
 
+				// Start message processing
+				closing_worker = false;
+				worker = std::thread(&IClient::WorkerJob, this);
+
+				// Start listening
 				connection->Read();
 
 				return true;
@@ -53,29 +81,47 @@ namespace net
 
 			void Disconnect()
 			{
+				// Stop message processing
+				closing_worker = true;
+				wait_for_messages.notify_all();
+				worker.join();
+
+				// Closing ASIO context
 				context.stop();
 				thrContext.join();
 
+				// Closing connection
 				closing_connection = true;
 				if (connection) delete connection;
 				connection = nullptr;
 				closing_connection = false;
 
+				// Cleaning incomming queue
 				common::Message<Type>* msg;
 				while (incomming_queue.pop(&msg))
 					delete msg;
+
+				OnDisconnect();
 			}
 
 			void Send(common::Message<Type>& msg)
 			{
 				if (connection && connection->isConnected() && !closing_connection)
 					connection->Write(msg);
+				else
+					Disconnect();
 			}
 
 			bool Read(common::Message<Type>*& destination)
 			{
 				return incomming_queue.pop(&destination);
 			}
+
+
+			// Server interface
+		protected:
+			virtual void OnMessage(net::common::Message<Type>* msg) {}
+			virtual void OnDisconnect() {}
 		};
 	} // client
 } // net

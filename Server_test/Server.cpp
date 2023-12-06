@@ -33,6 +33,11 @@ protected:
 		msg->getString(a);
 		std::cout << a << "\n\n";
 	}
+
+	virtual void OnClientDisconnect(uint64_t client_id)
+	{
+		std::cout << "Client " << client_id << " disconnected\n";
+	}
 };
 
 void server()

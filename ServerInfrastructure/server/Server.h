@@ -95,13 +95,14 @@ namespace net
 				WaitForConnections();
 				context_thread = std::thread([&]() { context.run(); });
 
+				// Start message processing
 				closing_worker = false;
 				worker = std::thread(&IServer::WorkerJob, this);
 			}
 
 			void Stop()
 			{
-				// Closing worker thread
+				// Stop message processing
 				closing_worker = true;
 				wait_for_messages.notify_all();
 				worker.join();
