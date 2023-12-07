@@ -154,6 +154,12 @@ namespace net
 			virtual void OnMessage(net::common::Message<Type>* msg, uint64_t client_id) {}
 			virtual bool OnClientConnect(std::string address, int port) { return true; }
 			virtual void OnClientDisconnect(uint64_t client_id) {}
+
+			void ForEachClient(std::function<void(uint64_t)> const & execute)
+			{
+				for (std::pair<uint64_t, common::Connection<Type>*> connection : connections)
+					execute(connection.first);
+			}
 		};
 	} // server
 } // net
