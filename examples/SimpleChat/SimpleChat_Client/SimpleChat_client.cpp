@@ -15,14 +15,15 @@ protected:
 		msg->getString(text);
 		std::cout << text << "\n\n";
 	}
-	virtual void OnDisconnect() {}
+	virtual void OnDisconnect() {
+		std::cout << "Disconnected\n";
+	}
 };
 
 int main()
 {
 	Chat_client client = Chat_client();
 	client.Connect("192.168.1.77", 60000);
-
 	while (true)
 	{
 		std::string command;

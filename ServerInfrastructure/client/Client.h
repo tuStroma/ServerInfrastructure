@@ -84,13 +84,14 @@ namespace net
 				// Stop message processing
 				closing_worker = true;
 				wait_for_messages.notify_all();
-				worker.join();
+				if (worker.joinable()) worker.join();
 
 				// Closing ASIO context
 				context.stop();
-				thrContext.join();
+				if (thrContext.joinable()) thrContext.join();
 
 				// Closing connection
+				bool connection_was_open = (bool)connection;
 				closing_connection = true;
 				if (connection) delete connection;
 				connection = nullptr;
@@ -101,7 +102,8 @@ namespace net
 				while (incomming_queue.pop(&msg))
 					delete msg;
 
-				OnDisconnect();
+				if (connection_was_open)
+					OnDisconnect();
 			}
 
 			void Send(common::Message<Type>& msg)
