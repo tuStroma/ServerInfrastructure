@@ -30,12 +30,8 @@ namespace net
 
 			bool is_server_connection = false;
 
-			// Client Connection (raw messages)
-			net::common::ThreadSharedQueue<Message<communication_context>*>* client_message_destination = nullptr;
-
-			// Server Connection (owned messages)
-			net::common::ThreadSharedQueue<ownedMessage<communication_context>>* server_message_destination = nullptr;
-			uint64_t client_id;
+			// Execute on message
+			std::function<void(Message<communication_context>*)> onMessage;
 
 			// Sending messages
 			std::thread sender_thread; bool finish_sending_job = false;
@@ -76,17 +72,6 @@ namespace net
 				sender_thread.join();
 			}
 
-			void saveMessage()
-			{
-				if (is_server_connection)
-					server_message_destination->push(ownedMessage<communication_context> { message_buffer, client_id });
-				else
-					client_message_destination->push(message_buffer);
-
-				// Notify connection owner about new message
-				on_message->notify_all();
-			}
-
 			void ReadHeader()
 			{
 				asio::async_read(socket, asio::buffer(&header_buffer, sizeof(header_buffer)), [&](std::error_code ec, std::size_t length) {
@@ -97,7 +82,7 @@ namespace net
 
 					if(header_buffer.getSize() == 0)
 					{
-						saveMessage();
+						onMessage(message_buffer);
 						ReadHeader();
 					}
 					else
@@ -111,7 +96,7 @@ namespace net
 					if (ec)
 						return;
 
-					saveMessage();
+					onMessage(message_buffer);
 					ReadHeader();
 					});
 			}
@@ -145,16 +130,8 @@ namespace net
 			}
 
 		public:
-			// Client Connection
-			Connection(asio::ip::tcp::socket socket, ThreadSharedQueue<Message<communication_context>*>* destination_queue, std::condition_variable* on_message_notification)
-				:socket(std::move(socket)), client_message_destination(destination_queue), on_message(on_message_notification)
-			{
-				sender_thread = std::thread(&Connection::SendingJob, this);
-			}
-
-			// Server Connection
-			Connection(asio::ip::tcp::socket socket, ThreadSharedQueue<ownedMessage<communication_context>>* destination_queue, uint64_t client_id, std::condition_variable* on_message_notification)
-				:socket(std::move(socket)), server_message_destination(destination_queue), client_id(client_id), is_server_connection(true), on_message(on_message_notification)
+			Connection(asio::ip::tcp::socket socket, std::function<void(Message<communication_context>*)> const& onMessage)
+				:socket(std::move(socket)), onMessage(onMessage)
 			{
 				sender_thread = std::thread(&Connection::SendingJob, this);
 			}

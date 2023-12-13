@@ -67,7 +67,10 @@ namespace net
 					return false;
 				}
 
-				connection = new common::Connection<Type>(std::move(socket), &incomming_queue, &wait_for_messages);
+				connection = new common::Connection<Type>(std::move(socket), [&](net::common::Message<Type>* msg) {
+					incomming_queue.push(msg);
+					wait_for_messages.notify_all();
+					});
 
 				// Start message processing
 				closing_worker = false;

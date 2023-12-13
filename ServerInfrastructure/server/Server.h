@@ -50,7 +50,11 @@ namespace net
 
 						if (OnClientConnect(address.to_string(), port)) 
 						{
-							common::Connection<Type>* connection = new net::common::Connection<Type>(std::move(socket), &incomming_queue, next_id, &wait_for_messages);
+							uint64_t current_id = next_id;
+							common::Connection<Type>* connection = new net::common::Connection<Type>(std::move(socket), [&, current_id](net::common::Message<Type>* msg) {
+								incomming_queue.push(common::ownedMessage<Type> { msg, current_id });
+								wait_for_messages.notify_all();
+								});
 							connections[next_id++] = connection;
 							connection->Read();
 						}
