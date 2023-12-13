@@ -142,10 +142,14 @@ namespace net
 
 			void DisconnectClient(uint64_t client_id)
 			{
-				delete connections[client_id];
-				connections.erase(client_id);
+				common::Connection<Type>* connection = connections[client_id];
+				if (connection)
+				{
+					connections.erase(client_id);
+					delete connection;
 
-				OnClientDisconnect(client_id);
+					OnClientDisconnect(client_id);
+				}
 			}
 
 

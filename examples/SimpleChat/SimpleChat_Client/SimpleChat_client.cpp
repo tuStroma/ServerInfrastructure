@@ -23,7 +23,7 @@ protected:
 int main()
 {
 	Chat_client client = Chat_client();
-	client.Connect("192.168.1.77", 60000);
+	client.Connect("127.0.0.1", 60000);
 	while (true)
 	{
 		std::string command;

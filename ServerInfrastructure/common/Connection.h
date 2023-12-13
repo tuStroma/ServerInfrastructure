@@ -91,10 +91,7 @@ namespace net
 			{
 				asio::async_read(socket, asio::buffer(&header_buffer, sizeof(header_buffer)), [&](std::error_code ec, std::size_t length) {
 					if (ec)
-					{
-						socket.close();
 						return;
-					}
 
 					message_buffer = new Message<communication_context>(header_buffer);
 
@@ -112,10 +109,7 @@ namespace net
 			{
 				asio::async_read(socket, asio::buffer(message_buffer->getBody(), message_buffer->getSize()), [&](std::error_code ec, std::size_t length) {
 					if (ec)
-					{
-						socket.close();
 						return;
-					}
 
 					saveMessage();
 					ReadHeader();
@@ -127,10 +121,7 @@ namespace net
 				Header<communication_context> header = msg_to_send->getHeader();
 				asio::async_write(socket, asio::buffer(&header, sizeof(header)), [&](std::error_code ec, std::size_t length) {
 					if (ec)
-					{
-						socket.close();
 						return;
-					}
 
 					if (header.getSize() == 0)
 					{
@@ -146,10 +137,7 @@ namespace net
 			{
 				asio::async_write(socket, asio::buffer(msg_to_send->getBody(), msg_to_send->getHeader().getSize()), [&](std::error_code ec, std::size_t length) {
 					if (ec)
-					{
-						socket.close();
 						return;
-					}
 
 					delete msg_to_send;
 					wait_till_sent.notify_one();
@@ -177,7 +165,7 @@ namespace net
 				closeSender();
 
 				// Close socket
-				socket.close();
+				if (socket.is_open()) socket.close();
 
 				// Delete all messages
 				Message<communication_context>* msg;

@@ -56,6 +56,12 @@ int main()
 
 		if (command == "q")
 			break;
+		else if (command == "d")
+		{
+			int client = 0;
+			std::cin >> client;
+			server.DisconnectClient(client);
+		}
 	}
 
 	server.Stop();
