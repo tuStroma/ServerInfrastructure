@@ -68,9 +68,16 @@ namespace net
 					return false;
 				}
 
-				connection = new common::Connection<Type>(std::move(socket), context, [&](net::common::Message<Type>* msg) {
-					incomming_queue.push(msg);
-					wait_for_messages.notify_all();
+				connection = new common::Connection<Type>(std::move(socket), context, 
+					[&](net::common::Message<Type>* msg) // On message
+					{
+						incomming_queue.push(msg);
+						wait_for_messages.notify_all();
+					},
+					[&]() // On disconnect
+					{
+						// Delegate thread to close connection (ASIO thread can't close itself)
+						std::thread([&]() { Disconnect(); }).detach();
 					});
 
 				// Start message processing

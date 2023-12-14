@@ -33,15 +33,13 @@ namespace net
 
 			// Execute on message
 			std::function<void(Message<communication_context>*)> onMessage;
+			std::function<void()> onDisconnect;
 
 			// Sending messages
 			std::thread sender_thread; bool finish_sending_job = false;
 			std::condition_variable wait_for_messages, wait_till_sent;
 			net::common::ThreadSharedQueue<Message<communication_context>*> message_sending_queue;
 			Message<communication_context>* msg_to_send = nullptr;
-
-			// Notification
-			std::condition_variable* on_message;
 
 
 			void SendingJob()
@@ -77,7 +75,10 @@ namespace net
 			{
 				asio::async_read(socket, asio::buffer(&header_buffer, sizeof(header_buffer)), [&](std::error_code ec, std::size_t length) {
 					if (ec)
+					{
+						if (ec.value() == 10054) onDisconnect(); // Connection forcebly closed by remote host
 						return;
+					}
 
 					message_buffer = new Message<communication_context>(header_buffer);
 
@@ -95,7 +96,10 @@ namespace net
 			{
 				asio::async_read(socket, asio::buffer(message_buffer->getBody(), message_buffer->getSize()), [&](std::error_code ec, std::size_t length) {
 					if (ec)
+					{
+						if (ec.value() == 10054) onDisconnect(); // Connection forcebly closed by remote host
 						return;
+					}
 
 					onMessage(message_buffer);
 					ReadHeader();
@@ -107,7 +111,10 @@ namespace net
 				Header<communication_context> header = msg_to_send->getHeader();
 				asio::async_write(socket, asio::buffer(&header, sizeof(header)), [&](std::error_code ec, std::size_t length) {
 					if (ec)
+					{
+						if (ec.value() == 10054) onDisconnect(); // Connection forcebly closed by remote host
 						return;
+					}
 
 					if (header.getSize() == 0)
 					{
@@ -123,7 +130,10 @@ namespace net
 			{
 				asio::async_write(socket, asio::buffer(msg_to_send->getBody(), msg_to_send->getHeader().getSize()), [&](std::error_code ec, std::size_t length) {
 					if (ec)
+					{
+						if (ec.value() == 10054) onDisconnect(); // Connection forcebly closed by remote host
 						return;
+					}
 
 					delete msg_to_send;
 					wait_till_sent.notify_one();
@@ -131,8 +141,11 @@ namespace net
 			}
 
 		public:
-			Connection(asio::ip::tcp::socket socket, asio::io_context& context, std::function<void(Message<communication_context>*)> const& onMessage)
-				:socket(std::move(socket)), asio_context(context), onMessage(onMessage)
+			Connection(asio::ip::tcp::socket socket, 
+						asio::io_context& context, 
+						std::function<void(Message<communication_context>*)> const& onMessage, 
+						std::function<void()> const& onDisconnect)
+				:socket(std::move(socket)), asio_context(context), onMessage(onMessage), onDisconnect(onDisconnect)
 			{
 				sender_thread = std::thread(&Connection::SendingJob, this);
 			}

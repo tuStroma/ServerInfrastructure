@@ -45,9 +45,15 @@ namespace net
 						if (OnClientConnect(socket.remote_endpoint().address().to_string(), next_id))
 						{
 							uint64_t current_id = next_id;
-							common::Connection<Type>* connection = new net::common::Connection<Type>(std::move(socket), context, [&, current_id](net::common::Message<Type>* msg) {
-								incomming_queue.push(common::ownedMessage<Type> { msg, current_id });
-								wait_for_messages.notify_all();
+							common::Connection<Type>* connection = new net::common::Connection<Type>(std::move(socket), context, 
+								[&, current_id](net::common::Message<Type>* msg) // On message
+								{
+									incomming_queue.push(common::ownedMessage<Type> { msg, current_id });
+									wait_for_messages.notify_all();
+								},
+								[&, current_id]() // On disconnect
+								{
+									DisconnectClient(current_id);
 								});
 							connections[next_id++] = connection;
 							connection->Read();
