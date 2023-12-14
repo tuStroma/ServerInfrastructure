@@ -51,7 +51,7 @@ namespace net
 						if (OnClientConnect(address.to_string(), port)) 
 						{
 							uint64_t current_id = next_id;
-							common::Connection<Type>* connection = new net::common::Connection<Type>(std::move(socket), [&, current_id](net::common::Message<Type>* msg) {
+							common::Connection<Type>* connection = new net::common::Connection<Type>(std::move(socket), context, [&, current_id](net::common::Message<Type>* msg) {
 								incomming_queue.push(common::ownedMessage<Type> { msg, current_id });
 								wait_for_messages.notify_all();
 								});
@@ -73,13 +73,15 @@ namespace net
 				{
 					common::ownedMessage<Type> message;
 					while (incomming_queue.pop(&message))
+					{
 						OnMessage(message.message, message.owner);
+						if (closing_worker) return; // Close worker
+					}
 
 					// Wait for next messages
 					wait_for_messages.wait(lk_for_messages);
 
-					// Close worker
-					if (closing_worker) return;
+					if (closing_worker) return; // Close worker
 				}
 			}
 

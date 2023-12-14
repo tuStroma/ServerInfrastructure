@@ -22,6 +22,7 @@ namespace net
 		{
 		private:
 			asio::ip::tcp::socket socket;
+			asio::io_context& asio_context;
 
 			// Receiving messages
 
@@ -130,8 +131,8 @@ namespace net
 			}
 
 		public:
-			Connection(asio::ip::tcp::socket socket, std::function<void(Message<communication_context>*)> const& onMessage)
-				:socket(std::move(socket)), onMessage(onMessage)
+			Connection(asio::ip::tcp::socket socket, asio::io_context& context, std::function<void(Message<communication_context>*)> const& onMessage)
+				:socket(std::move(socket)), asio_context(context), onMessage(onMessage)
 			{
 				sender_thread = std::thread(&Connection::SendingJob, this);
 			}
@@ -152,7 +153,7 @@ namespace net
 
 			bool isConnected()
 			{
-				return socket.is_open();
+				return socket.is_open() && !asio_context.stopped();
 			}
 
 			void Read()

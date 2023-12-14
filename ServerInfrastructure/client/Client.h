@@ -34,13 +34,14 @@ namespace net
 				{
 					common::Message<Type>* message;
 					while (incomming_queue.pop(&message))
+					{
 						OnMessage(message);
+						if (closing_worker) return; // Close worker
+					}
 
 					// Wait for next messages
 					wait_for_messages.wait(lk_for_messages);
-
-					// Close worker
-					if (closing_worker) return;
+					if (closing_worker) return; // Close worker
 				}
 			}
 
@@ -67,7 +68,7 @@ namespace net
 					return false;
 				}
 
-				connection = new common::Connection<Type>(std::move(socket), [&](net::common::Message<Type>* msg) {
+				connection = new common::Connection<Type>(std::move(socket), context, [&](net::common::Message<Type>* msg) {
 					incomming_queue.push(msg);
 					wait_for_messages.notify_all();
 					});

@@ -62,6 +62,20 @@ int main()
 			std::cin >> client;
 			server.DisconnectClient(client);
 		}
+		else if (command == "w")
+		{
+			int client_id;
+			std::string s;
+			std::getchar();
+			std::cin >> client_id;
+			std::getline(std::cin, s);
+
+			net::common::Message<ChatContext> msg(Message, s.size() + 1);
+
+			msg.putString(s.c_str());
+
+			server.Send(msg, client_id);
+		}
 	}
 
 	server.Stop();
