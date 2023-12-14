@@ -34,13 +34,10 @@ namespace net
 				{
 					common::Message<Type>* message;
 					while (incomming_queue.pop(&message))
-					{
 						OnMessage(message);
-						if (closing_worker) return; // Close worker
-					}
 
 					// Wait for next messages
-					wait_for_messages.wait(lk_for_messages);
+					if (!closing_worker) wait_for_messages.wait(lk_for_messages);
 					if (closing_worker) return; // Close worker
 				}
 			}
@@ -92,29 +89,31 @@ namespace net
 
 			void Disconnect()
 			{
-				// Stop message processing
-				closing_worker = true;
-				wait_for_messages.notify_all();
-				if (worker.joinable()) worker.join();
+				if (connection)
+				{
+					// Stop message processing
+					closing_worker = true;
 
-				// Closing ASIO context
-				context.stop();
-				if (thrContext.joinable()) thrContext.join();
+					wait_for_messages.notify_all();
+					if (worker.joinable()) worker.join();
 
-				// Closing connection
-				bool connection_was_open = (bool)connection;
-				closing_connection = true;
-				if (connection) delete connection;
-				connection = nullptr;
-				closing_connection = false;
+					// Closing ASIO context
+					context.stop();
+					if (thrContext.joinable()) thrContext.join();
 
-				// Cleaning incomming queue
-				common::Message<Type>* msg;
-				while (incomming_queue.pop(&msg))
-					delete msg;
+					// Closing connection
+					closing_connection = true;
+					if (connection) delete connection;
+					connection = nullptr;
+					closing_connection = false;
 
-				if (connection_was_open)
+					// Cleaning incomming queue
+					common::Message<Type>* msg;
+					while (incomming_queue.pop(&msg))
+						delete msg;
+
 					OnDisconnect();
+				}
 			}
 
 			void Send(common::Message<Type>& msg)

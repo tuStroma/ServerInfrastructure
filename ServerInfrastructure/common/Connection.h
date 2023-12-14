@@ -53,12 +53,12 @@ namespace net
 					while (message_sending_queue.pop(&msg_to_send))
 					{
 						WriteHeader();
-						wait_till_sent.wait(lk_till_sent);
+						if (!finish_sending_job) wait_till_sent.wait(lk_till_sent);
 						if (finish_sending_job) return;
 					}
 					
 					// And wait for next messages
-					wait_for_messages.wait(lk_for_messages);
+					if (!finish_sending_job) wait_for_messages.wait(lk_for_messages);
 					if (finish_sending_job) return;
 				}
 			}
@@ -66,8 +66,8 @@ namespace net
 			void closeSender()
 			{
 				finish_sending_job = true;
-				wait_for_messages.notify_one();
-				wait_till_sent.notify_one();
+				wait_for_messages.notify_all();
+				wait_till_sent.notify_all();
 				sender_thread.join();
 			}
 

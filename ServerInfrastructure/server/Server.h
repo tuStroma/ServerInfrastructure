@@ -73,14 +73,10 @@ namespace net
 				{
 					common::ownedMessage<Type> message;
 					while (incomming_queue.pop(&message))
-					{
 						OnMessage(message.message, message.owner);
-						if (closing_worker) return; // Close worker
-					}
 
 					// Wait for next messages
-					wait_for_messages.wait(lk_for_messages);
-
+					if (!closing_worker) wait_for_messages.wait(lk_for_messages);
 					if (closing_worker) return; // Close worker
 				}
 			}
