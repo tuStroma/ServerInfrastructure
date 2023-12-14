@@ -41,14 +41,8 @@ namespace net
 					std::cout << "Error while connecting: " << ec.message() << '\n';
 					else
 					{
-						std::cout << "Connected to " << socket.remote_endpoint() << "\n";
-
 						// Verify new client
-						asio::ip::address address; asio::ip::port_type port{};
-						socket.remote_endpoint().address(address);
-						socket.remote_endpoint().port(port);
-
-						if (OnClientConnect(address.to_string(), port)) 
+						if (OnClientConnect(socket.remote_endpoint().address().to_string(), next_id))
 						{
 							uint64_t current_id = next_id;
 							common::Connection<Type>* connection = new net::common::Connection<Type>(std::move(socket), context, [&, current_id](net::common::Message<Type>* msg) {
@@ -162,7 +156,7 @@ namespace net
 			// Server interface
 			protected:
 			virtual void OnMessage(net::common::Message<Type>* msg, uint64_t client_id) {}
-			virtual bool OnClientConnect(std::string address, int port) { return true; }
+			virtual bool OnClientConnect(std::string address, uint64_t client_id) { return true; }
 			virtual void OnClientDisconnect(uint64_t client_id) {}
 
 			void ForEachClient(std::function<void(uint64_t)> const & execute)

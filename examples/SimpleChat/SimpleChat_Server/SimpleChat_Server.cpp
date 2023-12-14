@@ -36,6 +36,12 @@ protected:
 		}
 	}
 
+	virtual bool OnClientConnect(std::string address, uint64_t client_id)
+	{
+		std::cout << "Welcome " << client_id << " with address " << address << "\n";
+		return true;
+	}
+
 	virtual void OnClientDisconnect(uint64_t client_id)
 	{
 		std::cout << "Client " << client_id << " disconnected\n";
