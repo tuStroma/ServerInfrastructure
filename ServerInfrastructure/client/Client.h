@@ -11,19 +11,20 @@ namespace net
 		class IClient
 		{
 		private:
+			// Communication
 			asio::io_context context;
 			std::thread thrContext;
 
-			common::ThreadSharedQueue<common::Message<Type>*> incomming_queue;
-
+			// Connection
 			common::Connection<Type>* connection = nullptr;
+
+			// Message processing
+			common::ThreadSharedQueue<common::Message<Type>*> incomming_queue;
+			std::thread worker; bool closing_worker = false;
+			std::condition_variable wait_for_messages;
 
 			// Cleanup
 			bool closing_connection = false;
-
-			// Message processing
-			std::thread worker; bool closing_worker = false;
-			std::condition_variable wait_for_messages;
 
 			void WorkerJob()
 			{
@@ -59,13 +60,12 @@ namespace net
 				asio::ip::tcp::socket socket(context);
 				socket.connect(endpoint, ec);
 
+				// Connection failed
 				if (ec)
-				{
-					std::cout << "Connection failed\n";
 					return false;
-				}
 
-				connection = new common::Connection<Type>(std::move(socket), context, 
+				// Connection succeeded
+				connection = new common::Connection<Type>(std::move(socket),
 					[&](net::common::Message<Type>* msg) // On message
 					{
 						incomming_queue.push(msg);
@@ -124,13 +124,8 @@ namespace net
 					Disconnect();
 			}
 
-			bool Read(common::Message<Type>*& destination)
-			{
-				return incomming_queue.pop(&destination);
-			}
 
-
-			// Server interface
+			// Client interface
 		protected:
 			virtual void OnMessage(net::common::Message<Type>* msg) {}
 			virtual void OnDisconnect() {}

@@ -20,14 +20,12 @@ namespace net
 			std::thread context_thread;
 			asio::ip::tcp::acceptor acceptor;
 
-			// Server management
-			common::ThreadSharedQueue<common::ownedMessage<Type>> incomming_queue;
-
 			// Multiple clients
 			uint64_t next_id = 0;
 			std::unordered_map<uint64_t, common::Connection<Type>*> connections;
 
 			// Message processing
+			common::ThreadSharedQueue<common::ownedMessage<Type>> incomming_queue;
 			std::thread worker; bool closing_worker = false;
 			std::condition_variable wait_for_messages;
 
@@ -45,7 +43,7 @@ namespace net
 						if (OnClientConnect(socket.remote_endpoint().address().to_string(), next_id))
 						{
 							uint64_t current_id = next_id;
-							common::Connection<Type>* connection = new net::common::Connection<Type>(std::move(socket), context, 
+							common::Connection<Type>* connection = new net::common::Connection<Type>(std::move(socket),
 								[&, current_id](net::common::Message<Type>* msg) // On message
 								{
 									incomming_queue.push(common::ownedMessage<Type> { msg, current_id });
@@ -92,14 +90,18 @@ namespace net
 
 			void Start()
 			{
-				is_running = true;
+				if (!is_running)
+				{
+					is_running = true;
 
-				WaitForConnections();
-				context_thread = std::thread([&]() { context.run(); });
+					// Start waiting for connections and open ASIO context
+					WaitForConnections();
+					context_thread = std::thread([&]() { context.run(); });
 
-				// Start message processing
-				closing_worker = false;
-				worker = std::thread(&IServer::WorkerJob, this);
+					// Start message processing
+					closing_worker = false;
+					worker = std::thread(&IServer::WorkerJob, this);
+				}
 			}
 
 			void Stop()
@@ -137,11 +139,6 @@ namespace net
 					DisconnectClient(client_id);
 			}
 
-			bool Read(common::ownedMessage<Type>& destination)
-			{
-				return incomming_queue.pop(&destination);
-			}
-
 			void DisconnectClient(uint64_t client_id)
 			{
 				common::Connection<Type>* connection = connections[client_id];
@@ -161,6 +158,7 @@ namespace net
 			virtual bool OnClientConnect(std::string address, uint64_t client_id) { return true; }
 			virtual void OnClientDisconnect(uint64_t client_id) {}
 
+			// Perform an action for every client
 			void ForEachClient(std::function<void(uint64_t)> const & execute)
 			{
 				for (std::pair<uint64_t, common::Connection<Type>*> connection : connections)

@@ -21,17 +21,14 @@ namespace net
 		class Connection
 		{
 		private:
+			// Communication
 			asio::ip::tcp::socket socket;
-			asio::io_context& asio_context;
 
 			// Receiving messages
-
 			Header<communication_context> header_buffer;
 			Message<communication_context>* message_buffer;
 
-			bool is_server_connection = false;
-
-			// Execute on message
+			// Execute on async events
 			std::function<void(Message<communication_context>*)> onMessage;
 			std::function<void()> onDisconnect;
 
@@ -53,6 +50,7 @@ namespace net
 					while (message_sending_queue.pop(&msg_to_send))
 					{
 						WriteHeader();
+						// Wait until the message is sent (not to override "msg_to_send")
 						if (!finish_sending_job) wait_till_sent.wait(lk_till_sent);
 						if (finish_sending_job) return;
 					}
@@ -141,11 +139,10 @@ namespace net
 			}
 
 		public:
-			Connection(asio::ip::tcp::socket socket, 
-						asio::io_context& context, 
-						std::function<void(Message<communication_context>*)> const& onMessage, 
+			Connection(	asio::ip::tcp::socket socket,
+						std::function<void(Message<communication_context>*)> const& onMessage,
 						std::function<void()> const& onDisconnect)
-				:socket(std::move(socket)), asio_context(context), onMessage(onMessage), onDisconnect(onDisconnect)
+				:socket(std::move(socket)), onMessage(onMessage), onDisconnect(onDisconnect)
 			{
 				sender_thread = std::thread(&Connection::SendingJob, this);
 			}
@@ -166,7 +163,7 @@ namespace net
 
 			bool isConnected()
 			{
-				return socket.is_open() && !asio_context.stopped();
+				return socket.is_open();
 			}
 
 			void Read()
