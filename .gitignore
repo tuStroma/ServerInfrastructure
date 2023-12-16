@@ -36,6 +36,7 @@
 .vs
 
 # Project
+*.sln
 *.vcxproj
 *.vcxproj.filters
 *.vcxproj.user
