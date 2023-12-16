@@ -5,13 +5,6 @@ VisualStudioVersion = 17.4.33110.190
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ServerInfrastructure", "ServerInfrastructure\ServerInfrastructure.vcxproj", "{1EE8C0F2-8C0D-4CE4-A0BB-D1D758386A28}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Server_test", "Server_test\Server_test.vcxproj", "{8964ABB1-5BB8-46C6-BD82-D7F7F92C7E33}"
-	ProjectSection(ProjectDependencies) = postProject
-		{1EE8C0F2-8C0D-4CE4-A0BB-D1D758386A28} = {1EE8C0F2-8C0D-4CE4-A0BB-D1D758386A28}
-	EndProjectSection
-EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Client_test", "Client_test\Client_test.vcxproj", "{EADAD81B-5BED-40BE-A58C-4F7EE6740A53}"
-EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SimpleChat_Server", "examples\SimpleChat\SimpleChat_Server\SimpleChat_Server.vcxproj", "{B3D8BAFB-AF9E-4469-B209-2F791558323E}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SimpleChat_Client", "examples\SimpleChat\SimpleChat_Client\SimpleChat_Client.vcxproj", "{30992688-CB9E-4F77-9542-9C2475798D94}"
@@ -32,22 +25,6 @@ Global
 		{1EE8C0F2-8C0D-4CE4-A0BB-D1D758386A28}.Release|x64.Build.0 = Release|x64
 		{1EE8C0F2-8C0D-4CE4-A0BB-D1D758386A28}.Release|x86.ActiveCfg = Release|Win32
 		{1EE8C0F2-8C0D-4CE4-A0BB-D1D758386A28}.Release|x86.Build.0 = Release|Win32
-		{8964ABB1-5BB8-46C6-BD82-D7F7F92C7E33}.Debug|x64.ActiveCfg = Debug|x64
-		{8964ABB1-5BB8-46C6-BD82-D7F7F92C7E33}.Debug|x64.Build.0 = Debug|x64
-		{8964ABB1-5BB8-46C6-BD82-D7F7F92C7E33}.Debug|x86.ActiveCfg = Debug|Win32
-		{8964ABB1-5BB8-46C6-BD82-D7F7F92C7E33}.Debug|x86.Build.0 = Debug|Win32
-		{8964ABB1-5BB8-46C6-BD82-D7F7F92C7E33}.Release|x64.ActiveCfg = Release|x64
-		{8964ABB1-5BB8-46C6-BD82-D7F7F92C7E33}.Release|x64.Build.0 = Release|x64
-		{8964ABB1-5BB8-46C6-BD82-D7F7F92C7E33}.Release|x86.ActiveCfg = Release|Win32
-		{8964ABB1-5BB8-46C6-BD82-D7F7F92C7E33}.Release|x86.Build.0 = Release|Win32
-		{EADAD81B-5BED-40BE-A58C-4F7EE6740A53}.Debug|x64.ActiveCfg = Debug|x64
-		{EADAD81B-5BED-40BE-A58C-4F7EE6740A53}.Debug|x64.Build.0 = Debug|x64
-		{EADAD81B-5BED-40BE-A58C-4F7EE6740A53}.Debug|x86.ActiveCfg = Debug|Win32
-		{EADAD81B-5BED-40BE-A58C-4F7EE6740A53}.Debug|x86.Build.0 = Debug|Win32
-		{EADAD81B-5BED-40BE-A58C-4F7EE6740A53}.Release|x64.ActiveCfg = Release|x64
-		{EADAD81B-5BED-40BE-A58C-4F7EE6740A53}.Release|x64.Build.0 = Release|x64
-		{EADAD81B-5BED-40BE-A58C-4F7EE6740A53}.Release|x86.ActiveCfg = Release|Win32
-		{EADAD81B-5BED-40BE-A58C-4F7EE6740A53}.Release|x86.Build.0 = Release|Win32
 		{B3D8BAFB-AF9E-4469-B209-2F791558323E}.Debug|x64.ActiveCfg = Debug|x64
 		{B3D8BAFB-AF9E-4469-B209-2F791558323E}.Debug|x64.Build.0 = Debug|x64
 		{B3D8BAFB-AF9E-4469-B209-2F791558323E}.Debug|x86.ActiveCfg = Debug|Win32
