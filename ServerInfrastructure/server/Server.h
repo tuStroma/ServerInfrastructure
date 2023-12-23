@@ -2,6 +2,7 @@
 
 #include <list>
 #include <unordered_map>
+#include <semaphore>
 
 #include "../common/Connection.h"
 
@@ -23,6 +24,7 @@ namespace net
 			// Multiple clients
 			uint64_t next_id = 0;
 			std::unordered_map<uint64_t, common::Connection<Type>*> connections;
+			std::binary_semaphore connections_lock; // Protects map from simultaneous deletions and insertions
 
 			// Message processing
 			common::ThreadSharedQueue<common::ownedMessage<Type>> incomming_queue;
@@ -79,9 +81,24 @@ namespace net
 				}
 			}
 
+			common::Connection<Type>* getConnection(uint64_t client_id)
+			{
+				common::Connection<Type>* connection = nullptr;
+
+				connections_lock.acquire();
+
+				if (connections.find(client_id) != connections.end())
+					connection = connections[client_id];
+
+				connections_lock.release();
+
+				return connection;
+			}
+
 		public:
 			IServer(uint32_t port) 
-				:acceptor(context, asio::ip::tcp::endpoint(asio::ip::tcp::v4(), port))
+				:acceptor(context, asio::ip::tcp::endpoint(asio::ip::tcp::v4(), port)),
+				 connections_lock(std::binary_semaphore(1))
 			{}
 			~IServer() {
 				if (is_running)
@@ -132,7 +149,7 @@ namespace net
 
 			void Send(common::Message<Type>& msg, uint64_t client_id)
 			{
-				common::Connection<Type>* connection = connections[client_id];
+				common::Connection<Type>* connection = getConnection(client_id);
 				if (connection && connection->isConnected() && !closing_connections)
 					connection->Write(msg);
 				else
@@ -141,10 +158,12 @@ namespace net
 
 			void DisconnectClient(uint64_t client_id)
 			{
-				common::Connection<Type>* connection = connections[client_id];
+				common::Connection<Type>* connection = getConnection(client_id);
 				if (connection)
 				{
+					connections_lock.acquire();
 					connections.erase(client_id);
+					connections_lock.release();
 					delete connection;
 
 					OnClientDisconnect(client_id);
@@ -161,8 +180,19 @@ namespace net
 			// Perform an action for every client
 			void ForEachClient(std::function<void(uint64_t)> const & execute)
 			{
-				for (std::pair<uint64_t, common::Connection<Type>*> connection : connections)
-					execute(connection.first);
+				std::list<uint64_t> clients;
+
+				// Create clients' id list
+				connections_lock.acquire();
+
+				for (auto& [id, connection] : connections)
+					clients.push_back(id);
+
+				connections_lock.release();
+
+				// Execute for every client
+				for (uint64_t client : clients)
+					execute(client);
 			}
 		};
 	} // server
