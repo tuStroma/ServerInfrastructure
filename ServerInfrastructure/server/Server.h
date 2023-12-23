@@ -53,7 +53,7 @@ namespace net
 								},
 								[&, current_id]() // On disconnect
 								{
-									DisconnectClient(current_id);
+									std::thread([&]() { DisconnectClient(current_id); }).detach();
 								});
 							connections[next_id++] = connection;
 							connection->Read();
@@ -150,10 +150,18 @@ namespace net
 			void Send(common::Message<Type>& msg, uint64_t client_id)
 			{
 				common::Connection<Type>* connection = getConnection(client_id);
+
+				connections_lock.acquire();
 				if (connection && connection->isConnected() && !closing_connections)
+				{
 					connection->Write(msg);
+					connections_lock.release();
+				}
 				else
+				{
+					connections_lock.release();
 					DisconnectClient(client_id);
+				}
 			}
 
 			void DisconnectClient(uint64_t client_id)
@@ -163,8 +171,8 @@ namespace net
 				{
 					connections_lock.acquire();
 					connections.erase(client_id);
-					connections_lock.release();
 					delete connection;
+					connections_lock.release();
 
 					OnClientDisconnect(client_id);
 				}
