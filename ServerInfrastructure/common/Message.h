@@ -110,6 +110,13 @@ namespace net
 				return get(destination, size);
 			}
 
+			int getStringLen()
+			{
+				char* str = (char*)body + read_offset;
+				int len = std::strlen(str);
+				return (read_offset + len <= header.getSize()) ? len : 0;
+			}
+
 			Header<Type> getHeader() { return header; }
 
 			void* getBody() { return body; }
