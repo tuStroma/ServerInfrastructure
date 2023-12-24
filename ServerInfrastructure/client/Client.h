@@ -17,6 +17,7 @@ namespace net
 
 			// Connection
 			common::Connection<Type>* connection = nullptr;
+			std::binary_semaphore connection_lock;
 
 			// Message processing
 			common::ThreadSharedQueue<common::Message<Type>*> incomming_queue;
@@ -44,7 +45,8 @@ namespace net
 			}
 
 		public:
-			IClient() {}
+			IClient()
+				:connection_lock(std::binary_semaphore(1)) {}
 			~IClient() 
 			{
 				Disconnect();
@@ -103,8 +105,10 @@ namespace net
 
 					// Closing connection
 					closing_connection = true;
+					connection_lock.acquire();
 					if (connection) delete connection;
 					connection = nullptr;
+					connection_lock.release();
 					closing_connection = false;
 
 					// Cleaning incomming queue
@@ -118,10 +122,17 @@ namespace net
 
 			void Send(common::Message<Type>& msg)
 			{
+				connection_lock.acquire();
 				if (connection && connection->isConnected() && !closing_connection)
+				{
 					connection->Write(msg);
+					connection_lock.release();
+				}
 				else
+				{
+					connection_lock.release();
 					Disconnect();
+				}
 			}
 
 
