@@ -31,9 +31,6 @@ namespace net
 			std::thread worker; bool closing_worker = false;
 			std::condition_variable wait_for_messages;
 
-			// Cleanup
-			bool closing_connections = false;
-
 			void WaitForConnections()
 			{
 				acceptor.async_accept([&](std::error_code ec, asio::ip::tcp::socket socket) {
@@ -133,11 +130,11 @@ namespace net
 				context_thread.join();
 
 				// Closing connections
-				closing_connections = true;
+				connections_lock.acquire();
 				for (std::pair<uint64_t, common::Connection<Type>*> connection : connections)
 					delete connection.second;
 				connections.clear();
-				closing_connections = false;
+				connections_lock.release();
 
 				// Cleaning incomming queue
 				common::ownedMessage<Type> msg;
@@ -152,7 +149,7 @@ namespace net
 				common::Connection<Type>* connection = getConnection(client_id);
 
 				connections_lock.acquire();
-				if (connection && connection->isConnected() && !closing_connections)
+				if (connection && connection->isConnected())
 				{
 					connection->Write(msg);
 					connections_lock.release();

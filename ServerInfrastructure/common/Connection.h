@@ -33,41 +33,8 @@ namespace net
 			std::function<void()> onDisconnect;
 
 			// Sending messages
-			std::thread sender_thread; bool finish_sending_job = false;
-			std::condition_variable wait_for_messages, wait_till_sent;
-			net::common::ThreadSharedQueue<Message<communication_context>*> message_sending_queue;
-			Message<communication_context>* msg_to_send = nullptr;
+			std::binary_semaphore sending_lock;
 
-
-			void SendingJob()
-			{
-				std::mutex next_messages_m, till_sent_m;
-				std::unique_lock<std::mutex> lk_for_messages(next_messages_m), lk_till_sent(till_sent_m);
-
-				while (true)
-				{
-					// Send all messages
-					while (message_sending_queue.pop(&msg_to_send))
-					{
-						WriteHeader();
-						// Wait until the message is sent (not to override "msg_to_send")
-						if (!finish_sending_job) wait_till_sent.wait(lk_till_sent);
-						if (finish_sending_job) return;
-					}
-					
-					// And wait for next messages
-					if (!finish_sending_job) wait_for_messages.wait(lk_for_messages);
-					if (finish_sending_job) return;
-				}
-			}
-
-			void closeSender()
-			{
-				finish_sending_job = true;
-				wait_for_messages.notify_all();
-				wait_till_sent.notify_all();
-				sender_thread.join();
-			}
 
 			void ReadHeader()
 			{
@@ -104,37 +71,37 @@ namespace net
 					});
 			}
 
-			void WriteHeader()
+			void WriteHeader(Message<communication_context>* msg)
 			{
-				Header<communication_context> header = msg_to_send->getHeader();
-				asio::async_write(socket, asio::buffer(&header, sizeof(header)), [&](std::error_code ec, std::size_t length) {
+				Header<communication_context> header = msg->getHeader();
+				asio::async_write(socket, asio::buffer(&header, sizeof(header)), [&, msg](std::error_code ec, std::size_t length) {
 					if (ec)
 					{
 						if (ec.value() == 10054) onDisconnect(); // Connection forcebly closed by remote host
 						return;
 					}
 
-					if (header.getSize() == 0)
+					if (msg->getHeader().getSize() == 0)
 					{
-						delete msg_to_send;
-						wait_till_sent.notify_one();
+						delete msg;
+						sending_lock.release();
 					}
 					else
-						WriteBody();
+						WriteBody(msg);
 					});
 			}
 
-			void WriteBody()
+			void WriteBody(Message<communication_context>* msg)
 			{
-				asio::async_write(socket, asio::buffer(msg_to_send->getBody(), msg_to_send->getHeader().getSize()), [&](std::error_code ec, std::size_t length) {
+				asio::async_write(socket, asio::buffer(msg->getBody(), msg->getHeader().getSize()), [&, msg](std::error_code ec, std::size_t length) {
 					if (ec)
 					{
 						if (ec.value() == 10054) onDisconnect(); // Connection forcebly closed by remote host
 						return;
 					}
 
-					delete msg_to_send;
-					wait_till_sent.notify_one();
+					delete msg;
+					sending_lock.release();
 					});
 			}
 
@@ -142,23 +109,16 @@ namespace net
 			Connection(	asio::ip::tcp::socket socket,
 						std::function<void(Message<communication_context>*)> const& onMessage,
 						std::function<void()> const& onDisconnect)
-				:socket(std::move(socket)), onMessage(onMessage), onDisconnect(onDisconnect)
-			{
-				sender_thread = std::thread(&Connection::SendingJob, this);
-			}
+				:socket(std::move(socket)), onMessage(onMessage), onDisconnect(onDisconnect), sending_lock(std::binary_semaphore(1))
+			{}
 
 			~Connection()
 			{
-				// Close sending job
-				closeSender();
-
 				// Close socket
 				if (socket.is_open()) socket.close();
 
-				// Delete all messages
-				Message<communication_context>* msg;
-				while (message_sending_queue.pop(&msg))
-					delete msg;
+				// Wait for all asio jobs to return
+				sending_lock.acquire();
 			}
 
 			bool isConnected()
@@ -173,8 +133,10 @@ namespace net
 
 			void Write(Message<communication_context>& msg)
 			{
-				message_sending_queue.push(new Message<communication_context>(msg));
-				wait_for_messages.notify_one();
+				Message<communication_context>* copied_msg = new Message<communication_context>(msg);
+
+				sending_lock.acquire();
+				WriteHeader(copied_msg);
 			}
 		};
 
