@@ -24,9 +24,6 @@ namespace net
 			std::thread worker; bool closing_worker = false;
 			std::condition_variable wait_for_messages;
 
-			// Cleanup
-			bool closing_connection = false;
-
 			void WorkerJob()
 			{
 				std::mutex next_messages_m;
@@ -104,12 +101,10 @@ namespace net
 					if (thrContext.joinable()) thrContext.join();
 
 					// Closing connection
-					closing_connection = true;
 					connection_lock.acquire();
 					if (connection) delete connection;
 					connection = nullptr;
 					connection_lock.release();
-					closing_connection = false;
 
 					// Cleaning incomming queue
 					common::Message<Type>* msg;
@@ -123,7 +118,7 @@ namespace net
 			void Send(common::Message<Type>& msg)
 			{
 				connection_lock.acquire();
-				if (connection && connection->isConnected() && !closing_connection)
+				if (connection && connection->isConnected())
 				{
 					connection->Write(msg);
 					connection_lock.release();

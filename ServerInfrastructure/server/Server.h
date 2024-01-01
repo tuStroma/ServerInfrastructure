@@ -82,12 +82,8 @@ namespace net
 			{
 				common::Connection<Type>* connection = nullptr;
 
-				connections_lock.acquire();
-
 				if (connections.find(client_id) != connections.end())
 					connection = connections[client_id];
-
-				connections_lock.release();
 
 				return connection;
 			}
@@ -146,9 +142,9 @@ namespace net
 
 			void Send(common::Message<Type>& msg, uint64_t client_id)
 			{
+				connections_lock.acquire();
 				common::Connection<Type>* connection = getConnection(client_id);
 
-				connections_lock.acquire();
 				if (connection && connection->isConnected())
 				{
 					connection->Write(msg);
@@ -163,16 +159,18 @@ namespace net
 
 			void DisconnectClient(uint64_t client_id)
 			{
+				connections_lock.acquire();
 				common::Connection<Type>* connection = getConnection(client_id);
 				if (connection)
 				{
-					connections_lock.acquire();
 					connections.erase(client_id);
 					delete connection;
 					connections_lock.release();
 
 					OnClientDisconnect(client_id);
 				}
+				else
+					connections_lock.release();
 			}
 
 
