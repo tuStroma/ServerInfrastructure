@@ -32,8 +32,9 @@ namespace net
 			std::function<void(Message<communication_context>*)> onMessage;
 			std::function<void()> onDisconnect;
 
-			// Sending messages
+			// ASIO tasks
 			std::binary_semaphore sending_lock;
+			std::binary_semaphore reading_lock;
 
 
 			void ReadHeader()
@@ -41,7 +42,8 @@ namespace net
 				asio::async_read(socket, asio::buffer(&header_buffer, sizeof(header_buffer)), [&](std::error_code ec, std::size_t length) {
 					if (ec)
 					{
-						if (ec.value() == 10054) onDisconnect(); // Connection forcebly closed by remote host
+						onDisconnect();
+						reading_lock.release();
 						return;
 					}
 
@@ -62,7 +64,8 @@ namespace net
 				asio::async_read(socket, asio::buffer(message_buffer->getBody(), message_buffer->getSize()), [&](std::error_code ec, std::size_t length) {
 					if (ec)
 					{
-						if (ec.value() == 10054) onDisconnect(); // Connection forcebly closed by remote host
+						onDisconnect();
+						reading_lock.release();
 						return;
 					}
 
@@ -77,7 +80,8 @@ namespace net
 				asio::async_write(socket, asio::buffer(&header, sizeof(header)), [&, msg](std::error_code ec, std::size_t length) {
 					if (ec)
 					{
-						if (ec.value() == 10054) onDisconnect(); // Connection forcebly closed by remote host
+						onDisconnect();
+						sending_lock.release();
 						return;
 					}
 
@@ -96,7 +100,8 @@ namespace net
 				asio::async_write(socket, asio::buffer(msg->getBody(), msg->getHeader().getSize()), [&, msg](std::error_code ec, std::size_t length) {
 					if (ec)
 					{
-						if (ec.value() == 10054) onDisconnect(); // Connection forcebly closed by remote host
+						onDisconnect();
+						sending_lock.release();
 						return;
 					}
 
@@ -109,7 +114,7 @@ namespace net
 			Connection(	asio::ip::tcp::socket socket,
 						std::function<void(Message<communication_context>*)> const& onMessage,
 						std::function<void()> const& onDisconnect)
-				:socket(std::move(socket)), onMessage(onMessage), onDisconnect(onDisconnect), sending_lock(std::binary_semaphore(1))
+				:socket(std::move(socket)), onMessage(onMessage), onDisconnect(onDisconnect), sending_lock(std::binary_semaphore(1)), reading_lock(std::binary_semaphore(0))
 			{}
 
 			~Connection()
@@ -118,6 +123,7 @@ namespace net
 				if (socket.is_open()) socket.close();
 
 				// Wait for all asio jobs to return
+				reading_lock.acquire();
 				sending_lock.acquire();
 			}
 

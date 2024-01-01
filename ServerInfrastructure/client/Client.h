@@ -61,7 +61,13 @@ namespace net
 
 				// Connection failed
 				if (ec)
+				{
+					// Closing ASIO context
+					context.stop();
+					if (thrContext.joinable()) thrContext.join();
+
 					return false;
+				}
 
 				// Connection succeeded
 				connection = new common::Connection<Type>(std::move(socket),
@@ -88,6 +94,7 @@ namespace net
 
 			void Disconnect()
 			{
+				connection_lock.acquire();
 				if (connection)
 				{
 					// Stop message processing
@@ -96,23 +103,25 @@ namespace net
 					wait_for_messages.notify_all();
 					if (worker.joinable()) worker.join();
 
+					// Closing connection
+					if (connection) delete connection;
+					connection = nullptr;
+
 					// Closing ASIO context
 					context.stop();
 					if (thrContext.joinable()) thrContext.join();
-
-					// Closing connection
-					connection_lock.acquire();
-					if (connection) delete connection;
-					connection = nullptr;
-					connection_lock.release();
 
 					// Cleaning incomming queue
 					common::Message<Type>* msg;
 					while (incomming_queue.pop(&msg))
 						delete msg;
 
+					connection_lock.release();
+
 					OnDisconnect();
 				}
+				else
+					connection_lock.release();
 			}
 
 			void Send(common::Message<Type>& msg)

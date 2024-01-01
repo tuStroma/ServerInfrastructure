@@ -121,16 +121,16 @@ namespace net
 				wait_for_messages.notify_all();
 				worker.join();
 
-				// Closing ASIO context
-				context.stop();
-				context_thread.join();
-
 				// Closing connections
 				connections_lock.acquire();
 				for (std::pair<uint64_t, common::Connection<Type>*> connection : connections)
 					delete connection.second;
 				connections.clear();
 				connections_lock.release();
+
+				// Closing ASIO context
+				context.stop();
+				context_thread.join();
 
 				// Cleaning incomming queue
 				common::ownedMessage<Type> msg;
